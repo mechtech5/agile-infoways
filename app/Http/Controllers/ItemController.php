@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Cart;
 use App\Item;
 use Illuminate\Http\Request;
 
 class ItemController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+    
     /**
      * Display a listing of the resource.
      *
@@ -15,7 +21,14 @@ class ItemController extends Controller
     public function index()
     {
         $items = Item::paginate(10);
-        return view('items.index', compact('items'));
+        $cart = Cart::with('items')->where('user_id', auth()->user()->id)->first();
+
+        // Convert to array of ids
+        $cart_items = array_map(function ($items) {
+            return ($items['id']);
+        }, $cart->items->toArray());
+
+        return view('items.index', compact('items', 'cart_items'));
     }
 
     /**

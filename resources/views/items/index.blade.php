@@ -2,6 +2,12 @@
 
 @section('content')
 	<div class="container-fluid">
+		@if($message = Session::get('success'))
+				<div class="alert alert-success">
+					{{$message}}
+				</div>
+		@endif
+		
 		<div>
 			<h3 class="float-left">Our Products</h3>
 			<span class="float-right">{{ $items->links() }}</span>
@@ -26,7 +32,13 @@
 					<td style="width: 30%">{{ $item->description }}</td>
 					<td><img src="{{ $item->image }}" alt="{{ $item->title }}"></td>
 					<td>{{ $item->price }}</td>
-					<td>--</td>
+					<td>
+						@if(in_array($item->id, $cart_items))
+							<span>Added to cart</span>
+						@else
+							<a href="{{ route('cart.add', $item->id) }}" class="btn btn-primary">Add</a>
+						@endif
+					</td>
 				</tr>
 				@endforeach
 			</tbody>

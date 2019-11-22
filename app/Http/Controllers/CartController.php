@@ -3,83 +3,76 @@
 namespace App\Http\Controllers;
 
 use App\Cart;
+use App\Item;
+use App\Order;
+use App\User;
 use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function index()
     {
-        //
+        $cart = Cart::with('items')->where('user_id', auth()->user()->id)->first();
+        $orders = Order::with('items')->where('user_id', auth()->user()->id)->get();
+        
+        return view('cart.index', compact('cart', 'orders'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
+    public function addItem($item_id)
     {
-        //
+        $user_id = auth()->user()->id;
+        $cart = Cart::where('user_id', $user_id)->first();
+
+        // Check if user's cart exists
+        if (!$cart)
+        {
+            $cart = new Cart;
+            $cart->user_id = $user_id;
+            $cart->save();
+        }
+
+        // Get cart with items
+        $cart = Cart::with('items')->where('id', $cart->id)->first();
+
+        // Convert to array of ids
+        $cart_items = array_map(function ($items) {
+            return ($items['id']);
+        }, $cart->items->toArray());
+
+        if(in_array($item_id, $cart_items))
+        {
+            return redirect(route('items.index'))->with('success', 'Item already added, You can edit quantity from cart');
+        }
+        else
+        {
+            $item = Item::find($item_id);
+            $cart->items()->save($item, ['quantity' => 1]);
+            return redirect(route('items.index'))->with('success', 'Item added to cart');
+        }
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
+    public function plusOne($item_id)
     {
-        //
+        $cart = Cart::where('user_id', auth()->user()->id)->first();
+        $existing_qty = $cart->items()->where('item_id', $item_id)->pluck('quantity')->first();
+        $cart->items()->updateExistingPivot($item_id, ['quantity' => $existing_qty + 1]);
+        return redirect(route('cart.index'))->with('success', 'Updated!');
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Cart  $cart
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Cart $cart)
+    public function minusOne($item_id)
     {
-        //
-    }
+        $cart = Cart::where('user_id', auth()->user()->id)->first();
+        $existing_qty = $cart->items()->where('item_id', $item_id)->pluck('quantity')->first();
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Cart  $cart
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Cart $cart)
-    {
-        //
-    }
+        if($existing_qty <= 1)
+        {
+            $cart->items()->detach($item_id);
+        }
+        else
+        {
+            $cart->items()->updateExistingPivot($item_id, ['quantity' => $existing_qty - 1]);
+        }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Cart  $cart
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, Cart $cart)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Cart  $cart
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(Cart $cart)
-    {
-        //
+        return redirect(route('cart.index'))->with('success', 'Updated!');
     }
 }
